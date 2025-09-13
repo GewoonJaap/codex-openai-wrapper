@@ -22,6 +22,45 @@ export interface Env {
 	REASONING_SUMMARY?: ReasoningSummary;
 	REASONING_COMPAT?: ReasoningCompat;
 	VERBOSE?: VerboseMode;
+
+	// --- Upstream provider overrides ---
+	// If set, overrides CHATGPT_RESPONSES_URL entirely
+	UPSTREAM_RESPONSES_URL?: string;
+	// If set (and UPSTREAM_RESPONSES_URL not set), request URL becomes `${UPSTREAM_BASE_URL}/responses`
+	UPSTREAM_BASE_URL?: string;
+	// Optional override for the path appended to UPSTREAM_BASE_URL (default: "/responses")
+	UPSTREAM_WIRE_API_PATH?: string;
+
+	// How to authenticate to the upstream provider
+	//   - "chatgpt_token" (default): Use OAuth access_token from OPENAI_CODEX_AUTH
+	//   - "apikey_auth_json": Use OPENAI_CODEX_AUTH[UPSTREAM_AUTH_ENV_KEY] (default key: "OPENAI_API_KEY")
+	//   - "apikey_env": Use UPSTREAM_API_KEY env var
+	UPSTREAM_AUTH_MODE?: "chatgpt_token" | "apikey_auth_json" | "apikey_env";
+	// The key name within OPENAI_CODEX_AUTH JSON to read when using apikey_auth_json (default: OPENAI_API_KEY)
+	UPSTREAM_AUTH_ENV_KEY?: string;
+	// API key to send upstream when using apikey_env
+	UPSTREAM_API_KEY?: string;
+	// Header name and scheme used for upstream auth (defaults: Authorization / Bearer)
+	UPSTREAM_AUTH_HEADER?: string;
+	UPSTREAM_AUTH_SCHEME?: string;
+
+	// Optional: wire schema variant for tools/tool_choice
+	//   - "nested" (default): tools[].function.name (OpenAI Responses style)
+	//   - "flat": tools[].name (some third-party providers)
+	UPSTREAM_TOOLS_FORMAT?: "nested" | "flat";
+
+	// --- Client header forwarding controls ---
+	// Controls how incoming client headers are forwarded to the upstream.
+	//   - "off" (default): do not forward client headers
+	//   - "safe": forward a safe allowlist (UA, Accept-Language, sec-ch-* , X-Forwarded-For, etc.)
+	//   - "list": forward only headers explicitly listed in FORWARD_CLIENT_HEADERS_LIST
+	//   - "override": after building default headers, override final headers using explicit key-value map
+	FORWARD_CLIENT_HEADERS_MODE?: "off" | "safe" | "list" | "override";
+	// When mode = "override": JSON string mapping header names to values, e.g.
+	// '{"User-Agent":"MyApp/1.0","Accept":"text/event-stream"}'
+	FORWARD_CLIENT_HEADERS_OVERRIDE?: string;
+	// Comma-separated header names (case-insensitive) used when mode = "list"
+	FORWARD_CLIENT_HEADERS_LIST?: string;
 }
 
 export type AuthTokens = {

@@ -40,6 +40,8 @@ ollama.post("/chat", openaiAuthMiddleware(), async (c) => {
 
 	const { response: upstream, error: errorResp } = await startUpstreamRequest(c.env, model, inputItems, {
 		instructions: instructions
+		,
+		forwardedClientHeaders: c.req.raw.headers
 	});
 
 	if (errorResp) {
@@ -127,7 +129,8 @@ ollama.post("/show", openaiAuthMiddleware(), async (c) => {
 		[], // No input items for /api/show
 		{
 			ollamaPath: "/api/show", // Specify the Ollama API path
-			ollamaPayload: payload // Pass the original payload
+			ollamaPayload: payload, // Pass the original payload
+			forwardedClientHeaders: c.req.raw.headers
 		}
 	);
 
@@ -156,7 +159,8 @@ ollama.get("/tags", async (c) => {
 		"", // No specific model for /api/tags
 		[], // No input items
 		{
-			ollamaPath: "/api/tags" // Specify the Ollama API path
+			ollamaPath: "/api/tags", // Specify the Ollama API path
+			forwardedClientHeaders: c.req.raw.headers
 		}
 	);
 

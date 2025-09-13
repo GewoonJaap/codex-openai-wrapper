@@ -95,7 +95,8 @@ openai.post("/v1/chat/completions", openaiAuthMiddleware(), async (c) => {
 		tools: toolsResponses,
 		toolChoice: toolChoice,
 		parallelToolCalls: parallelToolCalls,
-		reasoningParam: reasoningParam
+		reasoningParam: reasoningParam,
+		forwardedClientHeaders: c.req.raw.headers
 	});
 
 	if (verbose) {
@@ -277,7 +278,8 @@ openai.post("/v1/completions", openaiAuthMiddleware(), async (c) => {
 
 	const { response: upstream, error: errorResp } = await startUpstreamRequest(c.env, model, inputItems, {
 		instructions: instructions,
-		reasoningParam: reasoningParam
+		reasoningParam: reasoningParam,
+		forwardedClientHeaders: c.req.raw.headers
 	});
 
 	if (errorResp) {
