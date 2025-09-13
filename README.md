@@ -27,6 +27,54 @@ Choose your preferred deployment method:
 - **🌐 Cloudflare Workers** (Recommended) - Serverless, global edge deployment
 - **🐳 Docker** - Self-hosted with full control - [See Docker Guide](docs/docker.md)
 
+### Credentials
+
+Configure credentials once here without scrolling around. There are three layers:
+
+- Client access key: Used by clients calling this wrapper.
+- Upstream to ChatGPT (default): Uses Codex CLI OAuth tokens.
+- Upstream to third‑party provider (optional): Forwards an API key to a custom responses endpoint.
+
+1) Client access key (required)
+
+- Purpose: Protects `/v1/*` and `/api/*` endpoints of this wrapper.
+- Variable: `OPENAI_API_KEY` (any `sk-...` style secret).
+- Cloudflare Workers:
+  - `wrangler secret put OPENAI_API_KEY`
+- Docker (`.env` or `--env`):
+  - `OPENAI_API_KEY=sk-your-secret-api-key-here`
+
+2) Upstream to ChatGPT via Codex CLI (default path)
+
+- Variables: `OPENAI_CODEX_AUTH` (paste full `auth.json`), `CHATGPT_LOCAL_CLIENT_ID`, `CHATGPT_RESPONSES_URL`.
+- Cloudflare Workers:
+  - `wrangler secret put OPENAI_CODEX_AUTH`
+  - `wrangler secret put CHATGPT_LOCAL_CLIENT_ID`
+  - `wrangler secret put CHATGPT_RESPONSES_URL`
+- Docker (`.env`):
+  - `OPENAI_CODEX_AUTH={...auth.json...}`
+  - `CHATGPT_LOCAL_CLIENT_ID=your_client_id_here`
+  - `CHATGPT_RESPONSES_URL=https://chatgpt.com/backend-api/codex/responses`
+
+3) Upstream to a third‑party provider (credential forwarding, optional)
+
+- Choose the endpoint (pick one):
+  - `UPSTREAM_RESPONSES_URL=https://example.com/v1/responses` (highest priority)
+  - or `UPSTREAM_BASE_URL=https://example.com/v1` with optional `UPSTREAM_WIRE_API_PATH=/responses`
+- Choose auth mode：
+  - `UPSTREAM_AUTH_MODE=chatgpt_token` (default; uses `OPENAI_CODEX_AUTH.tokens.access_token`)
+  - `UPSTREAM_AUTH_MODE=apikey_auth_json` (reads key from `OPENAI_CODEX_AUTH[UPSTREAM_AUTH_ENV_KEY | default OPENAI_API_KEY]`)
+  - `UPSTREAM_AUTH_MODE=apikey_env` (uses `UPSTREAM_API_KEY`)
+- Optional header customization: `UPSTREAM_AUTH_HEADER` (default Authorization), `UPSTREAM_AUTH_SCHEME` (default Bearer)
+- Cloudflare Workers (example: apikey_env):
+  - `wrangler secret put UPSTREAM_RESPONSES_URL` → `https://example.com/v1/responses`
+  - `wrangler secret put UPSTREAM_AUTH_MODE` → `apikey_env`
+  - `wrangler secret put UPSTREAM_API_KEY` → `sk-your-upstream-api-key`
+- Docker (.env example):
+  - `UPSTREAM_RESPONSES_URL=https://example.com/v1/responses`
+  - `UPSTREAM_AUTH_MODE=apikey_env`
+  - `UPSTREAM_API_KEY=sk-your-upstream-api-key`
+
 ### Prerequisites (Cloudflare Workers)
 
 1. **OpenAI Account** with Codex CLI access
@@ -243,6 +291,52 @@ The service will be available at `http://localhost:8787`
 | `OLLAMA_API_URL` | `http://localhost:11434` | Ollama instance URL for local model integration |
 | `DEBUG_MODEL` | - | Override model for debugging purposes |
 | `VERBOSE` | `false` | Enable detailed debug logging |
+
+### Third‑party Model Providers (Credential Forwarding)
+
+This wrapper can forward your Codex CLI credentials to a custom upstream provider that speaks the Codex "responses" wire API (e.g., `.../v1/responses`). You can choose whether to forward the ChatGPT OAuth token or an API key stored in your Codex `auth.json`.
+
+1) Select upstream endpoint (one of either A or B):
+
+- Option A (full URL, highest priority):
+  - `UPSTREAM_RESPONSES_URL=https://example.com/v1/responses`
+- Option B (base URL + wire path):
+  - `UPSTREAM_BASE_URL=https://example.com/v1`
+  - `UPSTREAM_WIRE_API_PATH=/responses` (default)
+
+2) Select upstream auth mode via `UPSTREAM_AUTH_MODE`:
+
+- `chatgpt_token` (default): Forwards the OAuth `access_token` from `OPENAI_CODEX_AUTH.tokens.access_token`.
+- `apikey_auth_json`: Reads an API key from the `OPENAI_CODEX_AUTH` JSON by key name `UPSTREAM_AUTH_ENV_KEY` (default `OPENAI_API_KEY`) and forwards it as `Authorization: Bearer <key>`.
+- `apikey_env`: Reads `UPSTREAM_API_KEY` from environment and forwards it as `Authorization: Bearer <key>`.
+
+Optional header customization:
+
+- `UPSTREAM_AUTH_HEADER` (default: `Authorization`)
+- `UPSTREAM_AUTH_SCHEME` (default: `Bearer`)
+
+Example `.dev.vars` (use API key from `auth.json`):
+
+```
+UPSTREAM_BASE_URL=https://example.com/v1
+UPSTREAM_WIRE_API_PATH=/responses
+UPSTREAM_AUTH_MODE=apikey_auth_json
+UPSTREAM_AUTH_ENV_KEY=OPENAI_API_KEY
+```
+
+Example `.dev.vars` (use separate env API key):
+
+```
+UPSTREAM_RESPONSES_URL=https://example.com/v1/responses
+UPSTREAM_AUTH_MODE=apikey_env
+UPSTREAM_API_KEY=sk-your-upstream-api-key
+```
+
+Notes:
+
+- When `chatgpt_token` mode is used, token auto-refresh still applies on 401 and is retried.
+- `chatgpt-account-id` header is forwarded when available; most third‑party providers ignore it safely.
+- If neither `UPSTREAM_*` variables are set, the wrapper calls `CHATGPT_RESPONSES_URL` (default behavior).
 
 #### Authentication Security
 

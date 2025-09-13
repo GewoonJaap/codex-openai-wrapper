@@ -22,6 +22,27 @@ export interface Env {
 	REASONING_SUMMARY?: ReasoningSummary;
 	REASONING_COMPAT?: ReasoningCompat;
 	VERBOSE?: VerboseMode;
+
+	// --- Upstream provider overrides ---
+	// If set, overrides CHATGPT_RESPONSES_URL entirely
+	UPSTREAM_RESPONSES_URL?: string;
+	// If set (and UPSTREAM_RESPONSES_URL not set), request URL becomes `${UPSTREAM_BASE_URL}/responses`
+	UPSTREAM_BASE_URL?: string;
+	// Optional override for the path appended to UPSTREAM_BASE_URL (default: "/responses")
+	UPSTREAM_WIRE_API_PATH?: string;
+
+	// How to authenticate to the upstream provider
+	//   - "chatgpt_token" (default): Use OAuth access_token from OPENAI_CODEX_AUTH
+	//   - "apikey_auth_json": Use OPENAI_CODEX_AUTH[UPSTREAM_AUTH_ENV_KEY] (default key: "OPENAI_API_KEY")
+	//   - "apikey_env": Use UPSTREAM_API_KEY env var
+	UPSTREAM_AUTH_MODE?: "chatgpt_token" | "apikey_auth_json" | "apikey_env";
+	// The key name within OPENAI_CODEX_AUTH JSON to read when using apikey_auth_json (default: OPENAI_API_KEY)
+	UPSTREAM_AUTH_ENV_KEY?: string;
+	// API key to send upstream when using apikey_env
+	UPSTREAM_API_KEY?: string;
+	// Header name and scheme used for upstream auth (defaults: Authorization / Bearer)
+	UPSTREAM_AUTH_HEADER?: string;
+	UPSTREAM_AUTH_SCHEME?: string;
 }
 
 export type AuthTokens = {

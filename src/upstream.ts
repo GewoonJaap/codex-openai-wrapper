@@ -45,20 +45,25 @@ export async function startUpstreamRequest(
 
 	const { accessToken, accountId } = await getRefreshedAuth(env);
 
-	// KV token check (minimal logging)
+	// Determine request type and upstream auth mode early
+	const isOllamaRequest = Boolean(options?.ollamaPath);
+	const authMode = env.UPSTREAM_AUTH_MODE || "chatgpt_token";
 
-	if (!accessToken || !accountId) {
-		return {
-			response: null,
-			error: new Response(
-				JSON.stringify({
-					error: {
-						message: "Missing ChatGPT credentials. Run 'codex login' first"
-					}
-				}),
-				{ status: 401, headers: { "Content-Type": "application/json" } }
-			)
-		};
+	// In chatgpt_token mode, ChatGPT tokens are required (unless Ollama path)
+	if (!isOllamaRequest && authMode === "chatgpt_token") {
+		if (!accessToken || !accountId) {
+			return {
+				response: null,
+				error: new Response(
+					JSON.stringify({
+						error: {
+							message: "Missing ChatGPT credentials. Run 'codex login' first"
+						}
+					}),
+					{ status: 401, headers: { "Content-Type": "application/json" } }
+				)
+			};
+		}
 	}
 
 	const include: string[] = [];
@@ -66,10 +71,19 @@ export async function startUpstreamRequest(
 		include.push("reasoning.encrypted_content");
 	}
 
-	const isOllamaRequest = Boolean(options?.ollamaPath);
-	const requestUrl = isOllamaRequest
-		? `${env.OLLAMA_API_URL}${options?.ollamaPath}` // Assuming OLLAMA_API_URL is in Env
-		: env.CHATGPT_RESPONSES_URL;
+	// Resolve upstream URL
+	let requestUrl: string;
+	if (isOllamaRequest) {
+		requestUrl = `${env.OLLAMA_API_URL}${options?.ollamaPath}`;
+	} else if (env.UPSTREAM_RESPONSES_URL && env.UPSTREAM_RESPONSES_URL.trim()) {
+		requestUrl = env.UPSTREAM_RESPONSES_URL.trim();
+	} else if (env.UPSTREAM_BASE_URL && env.UPSTREAM_BASE_URL.trim()) {
+		const base = env.UPSTREAM_BASE_URL.replace(/\/$/, "");
+		const path = (env.UPSTREAM_WIRE_API_PATH && env.UPSTREAM_WIRE_API_PATH.trim()) || "/responses";
+		requestUrl = `${base}${path.startsWith("/") ? path : `/${path}`}`;
+	} else {
+		requestUrl = env.CHATGPT_RESPONSES_URL;
+	}
 
 	const sessionId = isOllamaRequest ? undefined : await generateSessionId(instructions, inputItems);
 
@@ -100,9 +114,80 @@ export async function startUpstreamRequest(
 	};
 
 	if (!isOllamaRequest) {
-		headers["Authorization"] = `Bearer ${accessToken}`;
+		// Pre-validate API key in apikey_* modes for clearer errors
+		if (authMode === "apikey_env") {
+			if (!env.UPSTREAM_API_KEY || !env.UPSTREAM_API_KEY.trim()) {
+				return {
+					response: null,
+					error: new Response(
+						JSON.stringify({ error: { message: "Missing upstream API key (set UPSTREAM_API_KEY)" } }),
+						{ status: 401, headers: { "Content-Type": "application/json" } }
+					)
+				};
+			}
+		}
+		if (authMode === "apikey_auth_json") {
+			try {
+				const keyName = (env.UPSTREAM_AUTH_ENV_KEY || "OPENAI_API_KEY").trim();
+				const authObj = env.OPENAI_CODEX_AUTH ? (JSON.parse(env.OPENAI_CODEX_AUTH) as Record<string, unknown>) : {};
+				const maybeKey = authObj?.[keyName];
+				if (typeof maybeKey !== "string" || !maybeKey.trim()) {
+					return {
+						response: null,
+						error: new Response(
+							JSON.stringify({ error: { message: `Missing upstream API key in OPENAI_CODEX_AUTH at key '${keyName}'` } }),
+							{ status: 401, headers: { "Content-Type": "application/json" } }
+						)
+					};
+				}
+			} catch (e) {
+				return {
+					response: null,
+					error: new Response(
+						JSON.stringify({ error: { message: "Invalid OPENAI_CODEX_AUTH JSON" } }),
+						{ status: 400, headers: { "Content-Type": "application/json" } }
+					)
+				};
+			}
+		}
+
+		// Build upstream auth header according to mode
+		const authHeaderName = (env.UPSTREAM_AUTH_HEADER || "Authorization").trim();
+		const authScheme = (env.UPSTREAM_AUTH_SCHEME || "Bearer").trim();
+
+		let sendAuth = "";
+		if (authMode === "apikey_auth_json") {
+			try {
+				if (env.OPENAI_CODEX_AUTH) {
+					const authObj = JSON.parse(env.OPENAI_CODEX_AUTH) as Record<string, unknown>;
+					const keyName = (env.UPSTREAM_AUTH_ENV_KEY || "OPENAI_API_KEY").trim();
+					const maybeKey = authObj?.[keyName];
+					if (typeof maybeKey === "string" && maybeKey.trim()) {
+						sendAuth = `${authScheme} ${maybeKey.trim()}`;
+					}
+				}
+			} catch (e) {
+				console.error("Failed parsing OPENAI_CODEX_AUTH for API key:", e);
+			}
+		} else if (authMode === "apikey_env") {
+			if (typeof env.UPSTREAM_API_KEY === "string" && env.UPSTREAM_API_KEY.trim()) {
+				sendAuth = `${authScheme} ${env.UPSTREAM_API_KEY.trim()}`;
+			}
+		} else {
+			// default: chatgpt_token
+			if (typeof accessToken === "string" && accessToken.trim()) {
+				sendAuth = `${authScheme} ${accessToken.trim()}`;
+			}
+		}
+
+		if (sendAuth) {
+			headers[authHeaderName] = sendAuth;
+		}
+
 		headers["Accept"] = "text/event-stream";
-		headers["chatgpt-account-id"] = accountId;
+		if (accountId) {
+			headers["chatgpt-account-id"] = accountId;
+		}
 		headers["OpenAI-Beta"] = "responses=experimental";
 		if (sessionId) {
 			headers["session_id"] = sessionId;
@@ -136,7 +221,7 @@ export async function startUpstreamRequest(
 			console.error("========================");
 
 			// Check if it's a 401 Unauthorized and we can refresh the token
-			if (upstreamResponse.status === 401 && env.OPENAI_CODEX_AUTH) {
+			if (upstreamResponse.status === 401 && env.OPENAI_CODEX_AUTH && (env.UPSTREAM_AUTH_MODE || "chatgpt_token") === "chatgpt_token") {
 				const refreshedTokens = await refreshAccessToken(env);
 				if (refreshedTokens) {
 					const headers: HeadersInit = {
@@ -144,7 +229,9 @@ export async function startUpstreamRequest(
 					};
 
 					if (!isOllamaRequest) {
-						headers["Authorization"] = `Bearer ${refreshedTokens.access_token}`;
+						const authHeaderName = (env.UPSTREAM_AUTH_HEADER || "Authorization").trim();
+						const authScheme = (env.UPSTREAM_AUTH_SCHEME || "Bearer").trim();
+						headers[authHeaderName] = `${authScheme} ${refreshedTokens.access_token}`;
 						headers["Accept"] = "text/event-stream";
 						headers["chatgpt-account-id"] = refreshedTokens.account_id || accountId;
 						headers["OpenAI-Beta"] = "responses=experimental";

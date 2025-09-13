@@ -22,3 +22,31 @@ REASONING_EFFORT=medium  # Options: minimal, low, medium, high
 REASONING_SUMMARY=auto   # Options: auto, on, off
 REASONING_COMPAT=think-tags  # Options: think-tags, standard
 VERBOSE=false            # Options: true, false
+
+# ------------------
+# Upstream provider overrides (optional)
+# ------------------
+
+# 1) Choose your upstream endpoint
+# Option A: Full responses URL (highest priority)
+# UPSTREAM_RESPONSES_URL=https://example.com/v1/responses
+
+# Option B: Base URL + wire path (defaults to /responses)
+# UPSTREAM_BASE_URL=https://example.com/v1
+# UPSTREAM_WIRE_API_PATH=/responses
+
+# 2) Choose how to authenticate to the upstream
+#    chatgpt_token     -> use OAuth tokens from OPENAI_CODEX_AUTH (default)
+#    apikey_auth_json  -> read key from OPENAI_CODEX_AUTH[UPSTREAM_AUTH_ENV_KEY] (default key: OPENAI_API_KEY)
+#    apikey_env        -> use UPSTREAM_API_KEY below
+# UPSTREAM_AUTH_MODE=chatgpt_token
+
+# When using apikey_auth_json, set the key name in OPENAI_CODEX_AUTH to read (default: OPENAI_API_KEY)
+# UPSTREAM_AUTH_ENV_KEY=OPENAI_API_KEY
+
+# When using apikey_env, place the upstream API key here
+# UPSTREAM_API_KEY=sk-your-upstream-api-key
+
+# Optional: customize header/scheme (defaults: Authorization / Bearer)
+# UPSTREAM_AUTH_HEADER=Authorization
+# UPSTREAM_AUTH_SCHEME=Bearer
