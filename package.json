@@ -16,7 +16,7 @@
 		"lint:fix": "eslint --ext .ts src --fix"
 	},
 	"devDependencies": {
-		"@cloudflare/vitest-pool-workers": "^0.8.19",
+		"@cloudflare/vitest-pool-workers": "^0.9.1",
 		"@cloudflare/workers-types": "^4.20250823.0",
 		"@eslint/eslintrc": "^3.3.1",
 		"@eslint/js": "^9.32.0",
