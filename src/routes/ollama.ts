@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { Env } from "../types";
 import { startUpstreamRequest } from "../upstream";
 import { normalizeModelName, convertChatMessagesToResponsesInput } from "../utils";
-import { getBaseInstructions } from "../instructions";
+import { getInstructionsForModel } from "../instructions";
 import { openaiAuthMiddleware } from "../middleware/openaiAuthMiddleware";
 
 const ollama = new Hono<{ Bindings: Env }>();
@@ -36,7 +36,7 @@ ollama.post("/chat", openaiAuthMiddleware(), async (c) => {
 
 	const inputItems = convertChatMessagesToResponsesInput(messages);
 
-	const instructions = await getBaseInstructions();
+	const instructions = await getInstructionsForModel(model);
 
 	const { response: upstream, error: errorResp } = await startUpstreamRequest(c.env, model, inputItems, {
 		instructions: instructions

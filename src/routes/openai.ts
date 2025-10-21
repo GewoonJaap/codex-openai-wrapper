@@ -4,7 +4,7 @@ import { startUpstreamRequest } from "../upstream";
 import { normalizeModelName, convertChatMessagesToResponsesInput, convertToolsChatToResponses } from "../utils";
 import { buildReasoningParam, applyReasoningToMessage } from "../reasoning";
 import { sseTranslateChat, sseTranslateText } from "../sse";
-import { getBaseInstructions } from "../instructions";
+import { getInstructionsForModel } from "../instructions";
 import { openaiAuthMiddleware } from "../middleware/openaiAuthMiddleware";
 import { MODEL_PRESETS, getReasoningEffortForModel, isModelPreset } from "../models";
 
@@ -98,7 +98,7 @@ openai.post("/v1/chat/completions", openaiAuthMiddleware(), async (c) => {
 		console.log("Authentication verified");
 	}
 
-	const instructions = await getBaseInstructions();
+	const instructions = await getInstructionsForModel(model);
 
 	const { response: upstream, error: errorResp } = await startUpstreamRequest(c.env, model, inputItems, {
 		instructions: instructions,
@@ -283,7 +283,7 @@ openai.post("/v1/completions", openaiAuthMiddleware(), async (c) => {
 			: undefined;
 	const reasoningParam = buildReasoningParam(reasoningEffort, reasoningSummary, reasoningOverrides);
 
-	const instructions = await getBaseInstructions();
+	const instructions = await getInstructionsForModel(model);
 
 	const { response: upstream, error: errorResp } = await startUpstreamRequest(c.env, model, inputItems, {
 		instructions: instructions,
