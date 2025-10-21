@@ -40,6 +40,9 @@ RUN mkdir -p .mf && \
     chown -R worker:nodejs /app && \
     chown -R worker:nodejs /home/worker
 
+# Copy and setup start script with proper permissions and ownership
+COPY --chmod=755 --chown=worker:nodejs start.sh /app/start.sh
+
 # Switch to non-root user for security
 USER worker
 
@@ -50,9 +53,5 @@ EXPOSE 8787
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:8787/health || exit 1
 
-# Create a startup script to handle environment variables
-COPY --chown=worker:nodejs start.sh /app/start.sh
-RUN chmod +x /app/start.sh
-
-# Use the startup script as entrypoint
+# Run the startup script
 ENTRYPOINT ["/app/start.sh"]
