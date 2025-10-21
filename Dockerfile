@@ -40,8 +40,8 @@ RUN mkdir -p .mf && \
     chown -R worker:nodejs /app && \
     chown -R worker:nodejs /home/worker
 
-# Copy and setup start script with proper permissions
-COPY --chmod=755 start.sh /app/start.sh
+# Copy and setup start script with proper permissions and ownership
+COPY --chmod=755 --chown=worker:nodejs start.sh /app/start.sh
 
 # Switch to non-root user for security
 USER worker
