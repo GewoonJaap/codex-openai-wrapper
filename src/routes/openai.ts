@@ -6,12 +6,13 @@ import { buildReasoningParam, applyReasoningToMessage } from "../reasoning";
 import { sseTranslateChat, sseTranslateText } from "../sse";
 import { getBaseInstructions } from "../instructions";
 import { openaiAuthMiddleware } from "../middleware/openaiAuthMiddleware";
+import { MODEL_PRESETS, getReasoningEffortForModel, isModelPreset } from "../models";
 
 const openai = new Hono<{ Bindings: Env }>();
 
 openai.post("/v1/chat/completions", openaiAuthMiddleware(), async (c) => {
 	const verbose = c.env.VERBOSE === "true";
-	const reasoningEffort = c.env.REASONING_EFFORT || "minimal";
+	let reasoningEffort = c.env.REASONING_EFFORT || "minimal";
 	const reasoningSummary = c.env.REASONING_SUMMARY || "auto";
 	const reasoningCompat = c.env.REASONING_COMPAT || "think-tags";
 	const debugModel = c.env.DEBUG_MODEL;
@@ -38,7 +39,16 @@ openai.post("/v1/chat/completions", openaiAuthMiddleware(), async (c) => {
 		}
 	}
 
-	const model = normalizeModelName(payload.model as string, debugModel);
+	const modelInput = payload.model as string;
+	const model = normalizeModelName(modelInput, debugModel);
+	// Use reasoning effort from preset if model input is a preset ID
+	if (isModelPreset(modelInput)) {
+		const presetEffort = getReasoningEffortForModel(
+			modelInput,
+			reasoningEffort as "minimal" | "low" | "medium" | "high"
+		);
+		reasoningEffort = presetEffort;
+	}
 	let messages = payload.messages;
 	if (!messages && typeof payload.prompt === "string") {
 		messages = [{ role: "user", content: payload.prompt }];
@@ -376,8 +386,27 @@ openai.post("/v1/completions", openaiAuthMiddleware(), async (c) => {
 });
 
 openai.get("/v1/models", (c) => {
-	const models = { object: "list", data: [{ id: "gpt-5", object: "model", owned_by: "owner" }] };
+	const models = {
+		object: "list",
+		data: [
+			{ id: "gpt-5", object: "model", owned_by: "owner" },
+			...MODEL_PRESETS.map((preset) => ({
+				id: preset.id,
+				object: "model",
+				owned_by: "owner",
+				description: preset.description,
+				reasoning_effort: preset.effort
+			}))
+		]
+	};
 	return c.json(models);
+});
+
+openai.get("/v1/model-presets", (c) => {
+	return c.json({
+		object: "list",
+		data: MODEL_PRESETS
+	});
 });
 
 export default openai;
