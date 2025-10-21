@@ -1,6 +1,6 @@
 import { normalizeModelName } from "./utils";
 import { getRefreshedAuth, refreshAccessToken } from "./auth_kv"; // Updated import
-import { getBaseInstructions } from "./instructions";
+import { getInstructionsForModel } from "./instructions";
 import { Env, InputItem, Tool } from "./types"; // Import types
 
 type ReasoningParam = {
@@ -73,7 +73,7 @@ export async function startUpstreamRequest(
 
 	const sessionId = isOllamaRequest ? undefined : await generateSessionId(instructions, inputItems);
 
-	const baseInstructions = await getBaseInstructions();
+	const baseInstructions = await getInstructionsForModel(model);
 
 	const requestBody = isOllamaRequest
 		? JSON.stringify(options?.ollamaPayload)
