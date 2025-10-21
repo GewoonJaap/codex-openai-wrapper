@@ -6,7 +6,7 @@ import { buildReasoningParam, applyReasoningToMessage } from "../reasoning";
 import { sseTranslateChat, sseTranslateText } from "../sse";
 import { getBaseInstructions } from "../instructions";
 import { openaiAuthMiddleware } from "../middleware/openaiAuthMiddleware";
-import { MODEL_PRESETS, getReasoningEffortForModel } from "../models";
+import { MODEL_PRESETS, getReasoningEffortForModel, isModelPreset } from "../models";
 
 const openai = new Hono<{ Bindings: Env }>();
 
@@ -42,7 +42,7 @@ openai.post("/v1/chat/completions", openaiAuthMiddleware(), async (c) => {
 	const modelInput = payload.model as string;
 	const model = normalizeModelName(modelInput, debugModel);
 	// Use reasoning effort from preset if model input is a preset ID
-	if (modelInput) {
+	if (isModelPreset(modelInput)) {
 		const presetEffort = getReasoningEffortForModel(
 			modelInput,
 			reasoningEffort as "minimal" | "low" | "medium" | "high"
