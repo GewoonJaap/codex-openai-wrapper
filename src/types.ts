@@ -106,3 +106,11 @@ export interface RefreshResponse {
 	access_token?: string;
 	refresh_token?: string;
 }
+
+export interface ModelPreset {
+	id: string;
+	label: string;
+	description: string;
+	model: string;
+	effort: ReasoningEffort;
+}

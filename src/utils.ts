@@ -1,4 +1,5 @@
 import { ChatMessage, ToolDefinition, InputItem, Tool } from "./types";
+import { getModelPreset } from "./models";
 
 export function normalizeModelName(name: string | null | undefined, debugModel: string | null | undefined): string {
 	if (typeof debugModel === "string" && debugModel.trim()) {
@@ -8,6 +9,13 @@ export function normalizeModelName(name: string | null | undefined, debugModel: 
 		return "gpt-5";
 	}
 	const base = name.split(":", 1)[0].trim();
+
+	// Check if it's a model preset
+	const preset = getModelPreset(base);
+	if (preset) {
+		return preset.model;
+	}
+
 	const mapping: { [key: string]: string } = {
 		gpt5: "gpt-5",
 		"gpt-5-latest": "gpt-5",

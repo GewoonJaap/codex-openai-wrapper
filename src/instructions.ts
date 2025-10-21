@@ -1,7 +1,9 @@
 // Fetch instructions from Pastebin URL at runtime
 export async function getBaseInstructions(): Promise<string> {
 	try {
-		const response = await fetch("https://raw.githubusercontent.com/openai/codex/refs/heads/main/codex-rs/core/prompt.md");
+		const response = await fetch(
+			"https://raw.githubusercontent.com/openai/codex/refs/heads/main/codex-rs/core/prompt.md"
+		);
 		if (!response.ok) {
 			throw new Error(`Failed to fetch instructions: ${response.status}`);
 		}
